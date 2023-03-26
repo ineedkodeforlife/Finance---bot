@@ -4,7 +4,7 @@ import logging
 
 from aiogram import Bot, Dispatcher, executor, types
 
-API_TOKEN = '6108816898:AAHaeWbJtoUyJIgunkaSGkd0eHmHRyBO2tk'
+API_TOKEN = '#Your API_TOKEN' 
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -41,7 +41,7 @@ c.execute("""CREATE TABLE IF NOT EXISTS Expensesss(
 
 def auth(func):
     async def wrapeer(message):
-        """if(message['from']['id']) != 576133865:
+        """if(message['from']['id']) != #your telegram id:
             return await message.reply("Sorry not you day",reply=False)"""
         return await func(message)
 
