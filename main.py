@@ -4,7 +4,7 @@ import logging
 
 from aiogram import Bot, Dispatcher, executor, types
 
-API_TOKEN = '#Your API_TOKEN' 
+API_TOKEN = 'YOURAPITOKEN'
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -19,7 +19,7 @@ now = datetime.datetime.now()
 c = conn.cursor()
 
 def pars(data_list):
-    return [str(i[0]) + '  ' + str(i[1]) for i in data_list]
+    return [str(i[0]) + '-' + str(i[1]) + '\n' for i in data_list]
 
 def check(data_list):
     return len(data_list) >= 1
@@ -41,7 +41,7 @@ c.execute("""CREATE TABLE IF NOT EXISTS Expensesss(
 
 def auth(func):
     async def wrapeer(message):
-        """if(message['from']['id']) != #your telegram id:
+        """if(message['from']['id']) != YOURTELEGRAMID:
             return await message.reply("Sorry not you day",reply=False)"""
         return await func(message)
 
@@ -57,6 +57,7 @@ async def welcome(message: types.Message):
         "Этот бот предназначен для учета финансов\n\n"
         "Для того, чтобы посмотреть это сообщение с коммандами еще раз, введите: /info\n\n"
         "Добавить расход: просто напишите \n\n1)Сумму 2)Категорию, вашей траты \n\n"
+        "Для удаления категории напишите \n\n!Название категории\n\n"
         "Для того, чтобы посмотреть траты за день /day\n\n"
         "Для того, чтобы посмотреть траты за месяц /month\n\n"
         "Для того, чтобы посмотреть траты за год /year\n\n"
@@ -79,15 +80,10 @@ async def day_s(message: types.Message):
 
     if (check(a.fetchall())):
         a = c.execute(q, ((str(datetime.date.today())),))
-        ans = int(a.fetchall()[0][0])
-        # await message.reply((int((c.fetchall()[0][0]))))
-        q = ("SELECT reason,much FROM Expensesss WHERE da_te = ?")
+        total = int(a.fetchall()[0][0])
+        q = ("SELECT reason,SUM(much) FROM Expensesss WHERE da_te = ? GROUP BY reason")
         c.execute(q, ((str(datetime.date.today())),))
-        ans_2 = pars(c.fetchall())
-        ans_message = f"Ваши траты за день {ans} руб \nКатегории трат {ans_2}."
-
-        # await message.reply('Причины ваших трат:',c.fetchall(),'\n Сумма затрат за день\n',ans)
-        await message.reply(ans_message)
+        await message.reply(f'Всего потрачено за день:\n*{total}\n\nКатегории трат: \n*{"*".join(pars(c.fetchall()))}')
     else:
         await message.reply('У вас пока что не было трат за этот день')
 
@@ -101,10 +97,10 @@ async def mon_s(message: types.Message):
     c.execute(prov, ((now.month, now.year)))
     if(check(c.fetchall())):
         c.execute(q,((now.month, now.year)))
-        summa = int(c.fetchall()[0][0])
+        total = int(c.fetchall()[0][0])
         qq = ("SELECT reason, SUM(much) AS total FROM Expensesss WHERE mo_nth = ? AND ye_ar = ? GROUP BY reason ")
         c.execute(qq, ((now.month, now.year)))
-        await message.reply(f'Всего потрачено за месяц {summa}\nКатегории трат \n{pars(c.fetchall())}')
+        await message.reply(f'Всего потрачено за месяц:\n*{total}\n\nКатегории трат: \n*{"*".join(pars(c.fetchall()))}')
     else:
         await message.reply('За этот месяц вы еще ничего не потратили')
 
@@ -117,10 +113,10 @@ async def year(message: types.Message):
     c.execute(prov, ((now.year,)))
     if(check(c.fetchall())):
         c.execute(q, ((now.year,)))
-        summa = int(c.fetchall()[0][0])
+        total = int(c.fetchall()[0][0])
         qq = ("SELECT reason, SUM(much) AS total FROM Expensesss WHERE ye_ar = ? GROUP BY reason ")
-        c.execute(qq, ((now.year,)))
-        await message.reply(f'Всего потрачено за год {summa}\nКатегории трат \n{pars(c.fetchall())}')
+        c.execute(qq, (now.year,))
+        await message.reply(f'Всего потрачено за год:\n*{total}\n\nКатегории трат: \n*{"*".join(pars(c.fetchall()))}')
     else:
         await message.reply('За этот год вы еще ничего не потратили')
 
@@ -132,8 +128,8 @@ async def cat(message: types.Message):
     SELECT reason, SUM(much) AS total FROM Expensesss GROUP BY reason
     """
     result = c.execute(q).fetchall()
-    if(check(result)):
-        await message.reply(pars(result))
+    if check(result):
+        await message.reply(f"Категории ваших трат: \n\n*{'*'.join(pars(result))}")
     else:
         await message.reply('Для того, чтобы вывести категории, вы должны ввести свои траты')
 
@@ -155,14 +151,20 @@ async def process_message(message: types.Message):
         conn.commit()
         query = "SELECT * FROM Expensesss WHERE da_te = ?;"
         c.execute(query, ((str(datetime.date.today())),))
-
         #result = c.fetchall()
-
         await message.reply("Ваша трата записана")
+
+    elif text[0][0] == '!' and type(text[0]) == str:
+        c.execute("DELETE FROM Expensesss WHERE reason = ?", (text[0][1:].lower(),))
+        if c.rowcount > 0:
+            await message.reply(f"Категория '{text[0][1:]}' удалена")
+        else:
+            await message.reply(f"Категория '{text[0][1:]}' не найдена")
+
+        conn.commit()
+
     else:
         await message.reply("Пожалуйста введите сообщение в формате \n1)Сумма 2)Категоия \n Пример: 500 Самокат")
-
-
 
 if __name__ == '__main__':
     executor.start_polling(dp, skip_updates=True)
